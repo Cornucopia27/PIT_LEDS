@@ -54,6 +54,9 @@
 #define RED_LED_PIN 22
 #define GREEN_LED_PIN 26
 
+#define RED_TURN 0
+#define GREEN_TURN 1
+#define BLUE_TURN 2
 /* TODO: insert other include files here. */
 
 /* TODO: insert other definitions and declarations here. */
@@ -62,8 +65,9 @@
  * @brief   Application entry point.
  */
 
-uint8_t state_stop = 0;
-uint8_t state_reverse = 0;
+uint8_t state_stop = 1;
+uint8_t state_reverse = 1;
+uint8_t organizer = 0;
 
 void PORTA_IRQHandler()
 {
@@ -79,12 +83,35 @@ void PORTC_IRQHandler()
 	state_stop = ( 0 == state_stop ) ? 1 : 0;
 }
 
+void control_organizer()
+{
+	if(0 == state_reverse)
+	{
+		if(0 >= organizer)
+		{
+			organizer = 2;
+		}
+		else
+			organizer--;
+	}
+	else
+	{
+		if(2 <= organizer)
+		{
+			organizer = 0;
+		}
+		else
+			organizer++;
+	}
+}
+
 void PIT0_IRQHandler()
 {
 	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
 	uint32_t period = 1;
 	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, period*CLOCK_GetBusClkFreq());
 	PIT_StartTimer(PIT, kPIT_Chnl_0);
+	control_organizer();
 }
 
 void blue_led_on()
@@ -141,6 +168,7 @@ int main(void)
 
 	PORT_SetPinConfig(BLUE_RED_LED_PORT, BLUE_LED_PIN, &config_led);
 	PORT_SetPinConfig(BLUE_RED_LED_PORT, RED_LED_PIN, &config_led);
+	PORT_SetPinConfig(GREEN_LED_PORT, GREEN_LED_PIN, &config_led);
 
 
 	port_pin_config_t config_switch =
@@ -157,6 +185,8 @@ int main(void)
 	{ kGPIO_DigitalOutput, 1 };
 
 	GPIO_PinInit(GPIOB, BLUE_LED_PIN, &led_config_gpio);
+	GPIO_PinInit(GPIOB, RED_LED_PIN, &led_config_gpio);
+	GPIO_PinInit(GPIOE, GREEN_LED_PIN, &led_config_gpio);
 
 	gpio_pin_config_t switch_config_gpio =
 	{ kGPIO_DigitalInput, 1 };
@@ -167,15 +197,30 @@ int main(void)
 	NVIC_EnableIRQ(PORTA_IRQn);
 	NVIC_EnableIRQ(PORTC_IRQn);
 
-	/* Force the counter to be placed into memory. */
-	volatile static int i = 0;
 	/* Enter an infinite loop, just incrementing a counter. */
-
-	PRINTF("Hola mundo!");
 
 	for(;;)
 	{
-
+		if(0 == state_stop)
+		{
+			PIT_StopTimer(PIT, kPIT_Chnl_0);
+		}
+		else
+		{
+			PIT_StartTimer(PIT, kPIT_Chnl_0);
+			if(RED_TURN == organizer)
+			{
+				red_led_on();
+			}
+			else if(GREEN_TURN == organizer)
+			{
+				green_led_on();
+			}
+			else if(BLUE_TURN == organizer)
+			{
+				blue_led_on();
+			}
+		}
 	}
 	return 0;
 }
